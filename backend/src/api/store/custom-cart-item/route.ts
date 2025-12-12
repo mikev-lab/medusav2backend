@@ -1,5 +1,4 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework";
-import { addToCartWorkflow } from "@medusajs/medusa/core-flows";
 import { Modules } from "@medusajs/framework/utils";
 
 type RequestBody = {
@@ -19,83 +18,71 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
 
   const cartModuleService = req.scope.resolve(Modules.CART);
   const regionModuleService = req.scope.resolve(Modules.REGION);
+  const productModuleService = req.scope.resolve(Modules.PRODUCT);
 
-  // 1. DIAGNOSTICS & AUTO-FIX
   try {
+      // 1. AUTO-FIX: Ensure Cart has a Region
       const debugCart = await (cartModuleService as any).retrieveCart(cart_id, {
           relations: ["shipping_address"] 
       });
 
-      console.log("--- [CustomCart DEBUG] ---");
-      console.log(`Cart ID: ${debugCart.id}`);
-      console.log(`Region ID: ${debugCart.region_id}`);
-      console.log(`Sales Channel ID: ${debugCart.sales_channel_id}`); // <--- CRITICAL CHECK
-      console.log(`Currency: ${debugCart.currency_code}`);
-      console.log(`Target Variant: ${variant_id}`);
-      console.log("--------------------------");
+      console.log(`[CustomCart] Processing Cart ${cart_id}. Current Region: ${debugCart.region_id}`);
 
-      // Auto-Fix: Force US Region if missing
       if (!debugCart.region_id) {
           console.warn("[CustomCart] Cart has no Region! Attempting to fix...");
           
-          const allRegions = await regionModuleService.listRegions({}, {
-              relations: ["countries"]
-          });
-
+          const allRegions = await regionModuleService.listRegions({}, { relations: ["countries"] });
+          // Find US Region
           const targetRegion = allRegions.find((r: any) => 
               r.countries?.some((c: any) => c.iso_2 === 'us')
           );
 
           if (targetRegion) {
-              console.log(`[CustomCart] Found valid US Region: ${targetRegion.id}. Updating Cart...`);
               await (cartModuleService as any).updateCarts(cart_id, {
                   region_id: targetRegion.id,
                   currency_code: targetRegion.currency_code,
                   shipping_address: { country_code: 'us' }
               });
+              console.log("[CustomCart] Cart repaired with Region:", targetRegion.id);
           } else {
-              console.error("[CustomCart] CRITICAL: No Region found for 'us' in Admin Settings!");
+              console.error("[CustomCart] CRITICAL: No US Region found.");
           }
       }
-  } catch (err) {
-      console.error("[CustomCart] Error during cart check:", err);
-  }
 
-  // 2. Add Item to Cart
-  const { result, errors } = await addToCartWorkflow(req.scope).run({
-    input: {
-      cart_id,
-      items: [{ variant_id, quantity, metadata }],
-    },
-    throwOnError: false,
-  }) as any;
+      // 2. FETCH VARIANT DETAILS (For clean display in Cart)
+      // We manually fetch this so we can set the title/thumbnail correctly
+      // when bypassing the standard workflow.
+      const variant = await productModuleService.retrieveProductVariant(variant_id, {
+          relations: ["product"]
+      });
 
-  if (errors.length || !result) {
-    console.error("[CustomCart] Workflow Errors:", JSON.stringify(errors, null, 2));
-    // Provide a hint in the error response based on logs
-    return res.status(500).json({ 
-        message: "Workflow failed",
-        details: "Item rejected. Check Railway logs for 'Sales Channel ID' or 'Currency' mismatch.",
-        debug_errors: errors 
-    });
-  }
+      // 3. DIRECT INJECTION (Bypass Workflow)
+      // We use addLineItems directly. This ignores inventory/price lists 
+      // and just inserts the record. perfect for custom manufacturing.
+      await (cartModuleService as any).addLineItems(cart_id, [{
+          variant_id: variant_id,
+          quantity: quantity,
+          unit_price: unit_price, // <--- Set Custom Price HERE
+          title: variant.title === "Default variant" ? variant.product.title : `${variant.product.title} - ${variant.title}`,
+          thumbnail: variant.product.thumbnail,
+          metadata: metadata
+      }]);
 
-  // 3. Update Price
-  const addedItem = result.items.find((item: any) => item.variant_id === variant_id);
-  const targetItemId = addedItem ? addedItem.id : result.items[result.items.length - 1].id;
+      console.log(`[CustomCart] Successfully injected custom item: ${variant.product.title}`);
 
-  try {
-    await (cartModuleService as any).updateLineItems(targetItemId, {
-      unit_price: unit_price,
-    });
-    
-    const updatedCart = await (cartModuleService as any).retrieveCart(cart_id, {
-      relations: ["items", "items.variant"],
-    });
+      // 4. Retrieve fresh cart for response
+      const updatedCart = await (cartModuleService as any).retrieveCart(cart_id, {
+          relations: ["items", "items.variant"],
+      });
 
-    return res.json({ cart: updatedCart });
+      return res.json({ cart: updatedCart });
 
   } catch (error: any) {
-    return res.status(500).json({ message: "Failed to update custom price", error: error.message });
+      console.error("[CustomCart] Operation Failed:", error);
+      return res.status(500).json({ 
+          message: "Failed to add custom item", 
+          error: error.message,
+          stack: error.stack 
+      });
   }
 }
