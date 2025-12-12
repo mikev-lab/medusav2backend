@@ -1,0 +1,22 @@
+
+> medusa-next@1.0.3 start
+> npm run launcher start
+
+
+> medusa-next@1.0.3 launcher
+> launch-storefront start
+
+Initial NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: pk_test_123
+NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY is already set.
+Initial NEXT_PUBLIC_SEARCH_API_KEY: your_search_key_here
+Running command: next start -p 8000
+   ▲ Next.js 15.5.7
+   - Local:        http://localhost:8000
+   - Network:      http://192.168.0.2:8000
+
+ ✓ Starting...
+ ⚠ Runtime config is deprecated and the `serverRuntimeConfig` configuration option will be removed in Next.js 16.
+[Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server. https://nextjs.org/docs/messages/production-start-no-build-id]
+Error launching storefront: Error: Error running command: Command failed with exit code 1
+    at launchStorefront (/app/storefront/node_modules/.pnpm/medusajs-launch-utils@0.0.18/node_modules/medusajs-launch-utils/src/storefrontLauncher.js:100:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
