@@ -22,8 +22,7 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
 
   // 1. DIAGNOSTICS & AUTO-FIX
   try {
-      // [FIX] Removed "region" from relations. 
-      // The Cart Module cannot expand 'region' because it lives in a different module.
+      // [FIX] Removed "region" from relations to prevent module isolation errors
       const debugCart = await (cartModuleService as any).retrieveCart(cart_id, {
           relations: ["shipping_address"] 
       });
@@ -34,18 +33,21 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
       if (!debugCart.region_id) {
           console.warn("[CustomCart] Cart has no Region! Attempting to fix...");
           
-          // Find a region that supports US
-          const regions = await regionModuleService.listRegions({
-              countries: { iso_2: "us" }
-          }, { take: 1 });
+          // [TYPE FIX] Use listCountries instead of listRegions to filter by ISO code
+          const countries = await regionModuleService.listCountries({
+              iso_2: "us"
+          }, { 
+              take: 1,
+              relations: ["region"] 
+          });
 
-          if (regions.length > 0) {
-              const targetRegion = regions[0];
+          if (countries.length > 0 && countries[0].region) {
+              const targetRegion = countries[0].region;
               console.log(`[CustomCart] Found valid US Region: ${targetRegion.id}. Updating Cart...`);
               
               await (cartModuleService as any).updateCarts(cart_id, {
                   region_id: targetRegion.id,
-                  currency_code: targetRegion.currency_code, // e.g. 'usd'
+                  currency_code: targetRegion.currency_code,
                   shipping_address: { country_code: 'us' }
               });
               console.log("[CustomCart] Cart repaired.");
@@ -55,7 +57,6 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
       }
   } catch (err) {
       console.error("[CustomCart] Error during cart check:", err);
-      // We continue even if check fails, hoping the workflow handles it or errors normally
   }
 
   // 2. Add Item to Cart (Standard Workflow)
@@ -85,7 +86,7 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
       unit_price: unit_price,
     });
     
-    // Retrieve fresh cart (Again, do not expand region here)
+    // Retrieve fresh cart (Do not expand region to avoid cross-module errors)
     const updatedCart = await (cartModuleService as any).retrieveCart(cart_id, {
       relations: ["items", "items.variant"],
     });
