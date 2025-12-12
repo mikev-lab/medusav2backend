@@ -17,6 +17,9 @@ importers:
       '@medusajs/cli':
         specifier: 2.12.1
         version: 2.12.1(@types/node@20.19.25)
+      '@medusajs/core-flows':
+        specifier: ^2.12.2
+        version: 2.12.2(@medusajs/framework@2.12.1(@medusajs/cli@2.12.1(@types/node@20.19.25))(@types/node@20.19.25)(ioredis@5.8.2)(vite@5.4.21(@types/node@20.19.25)))
       '@medusajs/dashboard':
         specifier: 2.12.1
         version: 2.12.1(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(typescript@5.9.3)
@@ -1353,6 +1356,12 @@ packages:
     engines: {node: '>=20'}
     peerDependencies:
       '@medusajs/framework': 2.12.1
+
+  '@medusajs/core-flows@2.12.2':
+    resolution: {integrity: sha512-k0Tskncocw9QKyM2uwSdbH7Mox0Kf6TdUV+j0RT31sdB5Hpkj6ZICInGPpQR9iUs97jX4Yh9HUCtDH6D8ZETjA==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@medusajs/framework': 2.12.2
 
   '@medusajs/currency@2.12.1':
     resolution: {integrity: sha512-bu8fwoLBpWUCOwPHFmLTcjmonYW8iBzBJBMNFRTAnpY4cG45DanOA0+/kUMRzrG0ut0jxz1c9LB3yPLQRz+Unw==}
@@ -9409,6 +9418,13 @@ snapshots:
       - tedious
 
   '@medusajs/core-flows@2.12.1(@medusajs/framework@2.12.1(@medusajs/cli@2.12.1(@types/node@20.19.25))(@types/node@20.19.25)(ioredis@5.8.2)(vite@5.4.21(@types/node@20.19.25)))':
+    dependencies:
+      '@medusajs/framework': 2.12.1(@medusajs/cli@2.12.1(@types/node@20.19.25))(@types/node@20.19.25)(ioredis@5.8.2)(vite@5.4.21(@types/node@20.19.25))
+      csv-parse: 5.6.0
+      json-2-csv: 5.5.10
+      zod: 3.25.76
+
+  '@medusajs/core-flows@2.12.2(@medusajs/framework@2.12.1(@medusajs/cli@2.12.1(@types/node@20.19.25))(@types/node@20.19.25)(ioredis@5.8.2)(vite@5.4.21(@types/node@20.19.25)))':
     dependencies:
       '@medusajs/framework': 2.12.1(@medusajs/cli@2.12.1(@types/node@20.19.25))(@types/node@20.19.25)(ioredis@5.8.2)(vite@5.4.21(@types/node@20.19.25))
       csv-parse: 5.6.0
