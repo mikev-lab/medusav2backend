@@ -13,10 +13,6 @@
     "sourceMap": false,
     "outDir": "./.medusa/server",
     "rootDir": "./",
-    "baseUrl": ".",
-    "paths": {
-      "*": ["./src/*"]
-    },
     "jsx": "react-jsx",
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
