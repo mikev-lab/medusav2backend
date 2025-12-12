@@ -20,38 +20,39 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
   const cartModuleService = req.scope.resolve(Modules.CART);
   const regionModuleService = req.scope.resolve(Modules.REGION);
 
-  // 1. DIAGNOSTICS & AUTO-FIX (Simplified)
+  // 1. DIAGNOSTICS & AUTO-FIX
   try {
-      // Retrieve cart without relation expansions that might fail
       const debugCart = await (cartModuleService as any).retrieveCart(cart_id, {
           relations: ["shipping_address"] 
       });
 
-      console.log(`[CustomCart] Checking Cart ${cart_id}. Region ID: ${debugCart.region_id}`);
+      console.log("--- [CustomCart DEBUG] ---");
+      console.log(`Cart ID: ${debugCart.id}`);
+      console.log(`Region ID: ${debugCart.region_id}`);
+      console.log(`Sales Channel ID: ${debugCart.sales_channel_id}`); // <--- CRITICAL CHECK
+      console.log(`Currency: ${debugCart.currency_code}`);
+      console.log(`Target Variant: ${variant_id}`);
+      console.log("--------------------------");
 
-      // If Cart has no Region, FORCE it to a valid US Region
+      // Auto-Fix: Force US Region if missing
       if (!debugCart.region_id) {
           console.warn("[CustomCart] Cart has no Region! Attempting to fix...");
           
-          // FIX: Fetch ALL regions and filter in memory. Simple and Type-Safe.
           const allRegions = await regionModuleService.listRegions({}, {
               relations: ["countries"]
           });
 
-          // Find the region that contains 'us'
           const targetRegion = allRegions.find((r: any) => 
               r.countries?.some((c: any) => c.iso_2 === 'us')
           );
 
           if (targetRegion) {
               console.log(`[CustomCart] Found valid US Region: ${targetRegion.id}. Updating Cart...`);
-              
               await (cartModuleService as any).updateCarts(cart_id, {
                   region_id: targetRegion.id,
                   currency_code: targetRegion.currency_code,
                   shipping_address: { country_code: 'us' }
               });
-              console.log("[CustomCart] Cart repaired.");
           } else {
               console.error("[CustomCart] CRITICAL: No Region found for 'us' in Admin Settings!");
           }
@@ -60,8 +61,7 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
       console.error("[CustomCart] Error during cart check:", err);
   }
 
-  // 2. Add Item to Cart (Standard Workflow)
-  // We use 'as any' to suppress strict return type checks here for simplicity
+  // 2. Add Item to Cart
   const { result, errors } = await addToCartWorkflow(req.scope).run({
     input: {
       cart_id,
@@ -72,14 +72,15 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
 
   if (errors.length || !result) {
     console.error("[CustomCart] Workflow Errors:", JSON.stringify(errors, null, 2));
+    // Provide a hint in the error response based on logs
     return res.status(500).json({ 
         message: "Workflow failed",
-        details: "Item could not be added. Likely availability issue.",
+        details: "Item rejected. Check Railway logs for 'Sales Channel ID' or 'Currency' mismatch.",
         debug_errors: errors 
     });
   }
 
-  // 3. Find Item & Update Price
+  // 3. Update Price
   const addedItem = result.items.find((item: any) => item.variant_id === variant_id);
   const targetItemId = addedItem ? addedItem.id : result.items[result.items.length - 1].id;
 
@@ -88,7 +89,6 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
       unit_price: unit_price,
     });
     
-    // Retrieve fresh cart for response
     const updatedCart = await (cartModuleService as any).retrieveCart(cart_id, {
       relations: ["items", "items.variant"],
     });
