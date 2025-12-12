@@ -20,29 +20,30 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
   const cartModuleService = req.scope.resolve(Modules.CART);
   const regionModuleService = req.scope.resolve(Modules.REGION);
 
-  // 1. DIAGNOSTICS & AUTO-FIX
+  // 1. DIAGNOSTICS & AUTO-FIX (Simplified)
   try {
-      // [FIX] Removed "region" from relations to prevent module isolation errors
+      // Retrieve cart without relation expansions that might fail
       const debugCart = await (cartModuleService as any).retrieveCart(cart_id, {
           relations: ["shipping_address"] 
       });
 
       console.log(`[CustomCart] Checking Cart ${cart_id}. Region ID: ${debugCart.region_id}`);
 
-      // [FIX] If Cart has no Region, FORCE it to a valid US Region
+      // If Cart has no Region, FORCE it to a valid US Region
       if (!debugCart.region_id) {
           console.warn("[CustomCart] Cart has no Region! Attempting to fix...");
           
-          // [TYPE FIX] Use listCountries instead of listRegions to filter by ISO code
-          const countries = await regionModuleService.listCountries({
-              iso_2: "us"
-          }, { 
-              take: 1,
-              relations: ["region"] 
+          // FIX: Fetch ALL regions and filter in memory. Simple and Type-Safe.
+          const allRegions = await regionModuleService.listRegions({}, {
+              relations: ["countries"]
           });
 
-          if (countries.length > 0 && countries[0].region) {
-              const targetRegion = countries[0].region;
+          // Find the region that contains 'us'
+          const targetRegion = allRegions.find((r: any) => 
+              r.countries?.some((c: any) => c.iso_2 === 'us')
+          );
+
+          if (targetRegion) {
               console.log(`[CustomCart] Found valid US Region: ${targetRegion.id}. Updating Cart...`);
               
               await (cartModuleService as any).updateCarts(cart_id, {
@@ -60,6 +61,7 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
   }
 
   // 2. Add Item to Cart (Standard Workflow)
+  // We use 'as any' to suppress strict return type checks here for simplicity
   const { result, errors } = await addToCartWorkflow(req.scope).run({
     input: {
       cart_id,
@@ -72,7 +74,7 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
     console.error("[CustomCart] Workflow Errors:", JSON.stringify(errors, null, 2));
     return res.status(500).json({ 
         message: "Workflow failed",
-        details: "Item could not be added. Check Railway logs for '[CustomCart]' details.",
+        details: "Item could not be added. Likely availability issue.",
         debug_errors: errors 
     });
   }
@@ -86,7 +88,7 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
       unit_price: unit_price,
     });
     
-    // Retrieve fresh cart (Do not expand region to avoid cross-module errors)
+    // Retrieve fresh cart for response
     const updatedCart = await (cartModuleService as any).retrieveCart(cart_id, {
       relations: ["items", "items.variant"],
     });
