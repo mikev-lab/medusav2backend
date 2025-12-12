@@ -1,4 +1,4 @@
-// src/api/store/custom-cart-item/route.ts
+// backend/src/api/store/custom-cart-item/route.ts
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework";
 import { addToCartWorkflow } from "@medusajs/medusa/core-flows";
 import { Modules } from "@medusajs/framework/utils";
@@ -14,11 +14,35 @@ type RequestBody = {
 export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse) {
   const { cart_id, variant_id, quantity, unit_price, metadata } = req.body;
 
-  console.log(`[CustomCart] Attempting to add ${variant_id} to ${cart_id}`);
+  console.log(`[CustomCart] Request received for Cart: ${cart_id}`);
 
   if (!cart_id || !variant_id || !quantity || unit_price === undefined) {
     return res.status(400).json({ message: "Missing required fields" });
   }
+
+  const cartModuleService = req.scope.resolve(Modules.CART);
+
+  // --- DIAGNOSTIC LOGGING ---
+  try {
+      // Fetch the cart to see its current "Context"
+      const debugCart = await (cartModuleService as any).retrieveCart(cart_id, {
+          relations: ["region", "shipping_address"]
+      });
+      
+      console.log("--- [CustomCart DIAGNOSTIC] ---");
+      console.log(`Cart ID: ${debugCart.id}`);
+      console.log(`Region ID: ${debugCart.region_id}`);
+      console.log(`Currency: ${debugCart.currency_code}`);
+      console.log(`Shipping Address Country: ${debugCart.shipping_address?.country_code}`);
+      console.log("-------------------------------");
+
+      if (!debugCart.region_id) {
+          console.error("CRITICAL: Cart has no Region ID. Inventory checks will fail!");
+      }
+  } catch (err) {
+      console.error("[CustomCart] Failed to inspect cart:", err);
+  }
+  // --------------------------
 
   // 1. Add Item to Cart
   const workflowResult = await addToCartWorkflow(req.scope).run({
@@ -31,22 +55,13 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
 
   const { result, errors } = workflowResult;
 
-  // --- DEBUGGING LOGS ---
-  if (errors.length) {
-      console.error("[CustomCart] Workflow Errors:", JSON.stringify(errors, null, 2));
-  }
-  if (!result) {
-      console.error("[CustomCart] Workflow returned NO RESULT. Input was:", JSON.stringify({ cart_id, variant_id, quantity }, null, 2));
-  }
-  // ---------------------
-
   if (errors.length || !result) {
-    // Return the specific error from the workflow if available
-    const errorMsg = errors.length ? errors[0].error?.message : "Workflow returned empty result (Check Product Availability/Inventory)";
+    console.error("[CustomCart] Workflow Failed. Errors:", JSON.stringify(errors, null, 2));
+    // Return more detailed info to the client
     return res.status(500).json({ 
         message: "Workflow failed",
-        details: errorMsg,
-        raw_errors: errors 
+        details: "Workflow returned empty result. Likely due to missing Cart Region or Inventory Mismatch.",
+        debug_errors: errors 
     });
   }
 
@@ -56,8 +71,6 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
 
   try {
     // 3. Force Update the Unit Price
-    const cartModuleService = req.scope.resolve(Modules.CART);
-    
     await (cartModuleService as any).updateLineItems(targetItemId, {
       unit_price: unit_price,
     });
