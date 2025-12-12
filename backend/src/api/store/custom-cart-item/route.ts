@@ -22,6 +22,7 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
 
   try {
       // 1. AUTO-FIX: Ensure Cart has a Region
+      // We only fetch 'shipping_address' which belongs to Cart Module. Safe.
       const debugCart = await (cartModuleService as any).retrieveCart(cart_id, {
           relations: ["shipping_address"] 
       });
@@ -50,19 +51,15 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
       }
 
       // 2. FETCH VARIANT DETAILS (For clean display in Cart)
-      // We manually fetch this so we can set the title/thumbnail correctly
-      // when bypassing the standard workflow.
       const variant = await productModuleService.retrieveProductVariant(variant_id, {
           relations: ["product"]
       });
 
       // 3. DIRECT INJECTION (Bypass Workflow)
-      // We use addLineItems directly. This ignores inventory/price lists 
-      // and just inserts the record. perfect for custom manufacturing.
       await (cartModuleService as any).addLineItems(cart_id, [{
           variant_id: variant_id,
           quantity: quantity,
-          unit_price: unit_price, // <--- Set Custom Price HERE
+          unit_price: unit_price,
           title: variant.title === "Default variant" ? variant.product.title : `${variant.product.title} - ${variant.title}`,
           thumbnail: variant.product.thumbnail,
           metadata: metadata
@@ -71,8 +68,11 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
       console.log(`[CustomCart] Successfully injected custom item: ${variant.product.title}`);
 
       // 4. Retrieve fresh cart for response
+      // [FIX] REMOVED "items.variant" from relations.
+      // The Cart Module cannot join the Product Module table directly.
+      // We retrieve "items" (which are inside Cart Module) and "shipping_address".
       const updatedCart = await (cartModuleService as any).retrieveCart(cart_id, {
-          relations: ["items", "items.variant"],
+          relations: ["items", "shipping_address"],
       });
 
       return res.json({ cart: updatedCart });
