@@ -1,4 +1,3 @@
-// backend/src/api/store/custom-cart-item/route.ts
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework";
 import { addToCartWorkflow } from "@medusajs/medusa/core-flows";
 import { Modules } from "@medusajs/framework/utils";
@@ -14,38 +13,53 @@ type RequestBody = {
 export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse) {
   const { cart_id, variant_id, quantity, unit_price, metadata } = req.body;
 
-  console.log(`[CustomCart] Request received for Cart: ${cart_id}`);
-
   if (!cart_id || !variant_id || !quantity || unit_price === undefined) {
     return res.status(400).json({ message: "Missing required fields" });
   }
 
   const cartModuleService = req.scope.resolve(Modules.CART);
+  const regionModuleService = req.scope.resolve(Modules.REGION);
 
-  // --- DIAGNOSTIC LOGGING ---
+  // 1. DIAGNOSTICS & AUTO-FIX
   try {
-      // Fetch the cart to see its current "Context"
+      // [FIX] Removed "region" from relations. 
+      // The Cart Module cannot expand 'region' because it lives in a different module.
       const debugCart = await (cartModuleService as any).retrieveCart(cart_id, {
-          relations: ["region", "shipping_address"]
+          relations: ["shipping_address"] 
       });
-      
-      console.log("--- [CustomCart DIAGNOSTIC] ---");
-      console.log(`Cart ID: ${debugCart.id}`);
-      console.log(`Region ID: ${debugCart.region_id}`);
-      console.log(`Currency: ${debugCart.currency_code}`);
-      console.log(`Shipping Address Country: ${debugCart.shipping_address?.country_code}`);
-      console.log("-------------------------------");
 
+      console.log(`[CustomCart] Checking Cart ${cart_id}. Region ID: ${debugCart.region_id}`);
+
+      // [FIX] If Cart has no Region, FORCE it to a valid US Region
       if (!debugCart.region_id) {
-          console.error("CRITICAL: Cart has no Region ID. Inventory checks will fail!");
+          console.warn("[CustomCart] Cart has no Region! Attempting to fix...");
+          
+          // Find a region that supports US
+          const regions = await regionModuleService.listRegions({
+              countries: { iso_2: "us" }
+          }, { take: 1 });
+
+          if (regions.length > 0) {
+              const targetRegion = regions[0];
+              console.log(`[CustomCart] Found valid US Region: ${targetRegion.id}. Updating Cart...`);
+              
+              await (cartModuleService as any).updateCarts(cart_id, {
+                  region_id: targetRegion.id,
+                  currency_code: targetRegion.currency_code, // e.g. 'usd'
+                  shipping_address: { country_code: 'us' }
+              });
+              console.log("[CustomCart] Cart repaired.");
+          } else {
+              console.error("[CustomCart] CRITICAL: No Region found for 'us' in Admin Settings!");
+          }
       }
   } catch (err) {
-      console.error("[CustomCart] Failed to inspect cart:", err);
+      console.error("[CustomCart] Error during cart check:", err);
+      // We continue even if check fails, hoping the workflow handles it or errors normally
   }
-  // --------------------------
 
-  // 1. Add Item to Cart
-  const workflowResult = await addToCartWorkflow(req.scope).run({
+  // 2. Add Item to Cart (Standard Workflow)
+  const { result, errors } = await addToCartWorkflow(req.scope).run({
     input: {
       cart_id,
       items: [{ variant_id, quantity, metadata }],
@@ -53,38 +67,32 @@ export async function POST(req: MedusaRequest<RequestBody>, res: MedusaResponse)
     throwOnError: false,
   }) as any;
 
-  const { result, errors } = workflowResult;
-
   if (errors.length || !result) {
-    console.error("[CustomCart] Workflow Failed. Errors:", JSON.stringify(errors, null, 2));
-    // Return more detailed info to the client
+    console.error("[CustomCart] Workflow Errors:", JSON.stringify(errors, null, 2));
     return res.status(500).json({ 
         message: "Workflow failed",
-        details: "Workflow returned empty result. Likely due to missing Cart Region or Inventory Mismatch.",
+        details: "Item could not be added. Check Railway logs for '[CustomCart]' details.",
         debug_errors: errors 
     });
   }
 
-  // 2. Find the Line Item ID
+  // 3. Find Item & Update Price
   const addedItem = result.items.find((item: any) => item.variant_id === variant_id);
   const targetItemId = addedItem ? addedItem.id : result.items[result.items.length - 1].id;
 
   try {
-    // 3. Force Update the Unit Price
     await (cartModuleService as any).updateLineItems(targetItemId, {
       unit_price: unit_price,
     });
     
-    // 4. Retrieve fresh cart
+    // Retrieve fresh cart (Again, do not expand region here)
     const updatedCart = await (cartModuleService as any).retrieveCart(cart_id, {
       relations: ["items", "items.variant"],
     });
 
-    console.log(`[CustomCart] Success! Updated item ${targetItemId} to ${unit_price}`);
     return res.json({ cart: updatedCart });
 
   } catch (error: any) {
-    console.error("[CustomCart] Price Update Failed:", error);
     return res.status(500).json({ message: "Failed to update custom price", error: error.message });
   }
 }
