@@ -1,0 +1,1 @@
+{"version":3,"file":"register-usage.d.ts","sourceRoot":"","sources":["../../../src/promotion/steps/register-usage.ts"],"names":[],"mappings":"AAAA,OAAO,EACL,0BAA0B,EAE1B,oBAAoB,EACrB,MAAM,2BAA2B,CAAA;AAIlC,eAAO,MAAM,mBAAmB,mBAAmB,CAAA;AAEnD,KAAK,sBAAsB,GAAG;IAC5B,eAAe,EAAE,oBAAoB,EAAE,CAAA;IACvC,mBAAmB,EAAE,0BAA0B,CAAA;CAChD,CAAA;AACD;;GAEG;AACH,eAAO,MAAM,iBAAiB,wFAmC7B,CAAA"}

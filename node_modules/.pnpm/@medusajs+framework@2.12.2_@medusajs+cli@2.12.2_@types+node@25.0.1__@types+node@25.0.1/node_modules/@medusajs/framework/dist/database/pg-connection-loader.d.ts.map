@@ -1,0 +1,1 @@
+{"version":3,"file":"pg-connection-loader.d.ts","sourceRoot":"","sources":["../../src/database/pg-connection-loader.ts"],"names":[],"mappings":"AAAA,OAAO,EAEL,eAAe,EAGhB,MAAM,iBAAiB,CAAA;AAMxB;;GAEG;AACH,wBAAsB,kBAAkB,IAAI,OAAO,CACjD,UAAU,CAAC,OAAO,eAAe,CAAC,kBAAkB,CAAC,CACtD,CA8EA"}

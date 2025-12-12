@@ -1,0 +1,5 @@
+{
+	"dependencies": {
+		"@medusajs/core-flows": "^2.12.2"
+	}
+}
