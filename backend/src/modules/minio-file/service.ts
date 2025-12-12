@@ -41,40 +41,12 @@ class MinioFileProviderService extends AbstractFileProviderService {
   protected readonly logger_: Logger
   protected client: Client
   protected readonly bucket: string
-  protected readonly useSSL: boolean
 
   constructor({ logger }: InjectedDependencies, options: MinioFileProviderOptions) {
     super()
     this.logger_ = logger
-    
-    // Parse endpoint to extract hostname and protocol
-    let endPoint = options.endPoint
-    let useSSL = true
-    let port = 443
-    
-    // Strip protocol if present (MinIO client v8+ requires hostname only)
-    if (endPoint.startsWith('https://')) {
-      endPoint = endPoint.replace('https://', '')
-      useSSL = true
-      port = 443
-    } else if (endPoint.startsWith('http://')) {
-      endPoint = endPoint.replace('http://', '')
-      useSSL = false
-      port = 80
-    }
-    
-    // Remove trailing slash if present
-    endPoint = endPoint.replace(/\/$/, '')
-    
-    // Extract port from endpoint if specified (e.g., "minio.example.com:9000")
-    const portMatch = endPoint.match(/:(\d+)$/)
-    if (portMatch) {
-      port = parseInt(portMatch[1], 10)
-      endPoint = endPoint.replace(/:(\d+)$/, '')
-    }
-    
     this.config_ = {
-      endPoint: endPoint,
+      endPoint: options.endPoint,
       accessKey: options.accessKey,
       secretKey: options.secretKey,
       bucket: options.bucket
@@ -82,14 +54,13 @@ class MinioFileProviderService extends AbstractFileProviderService {
 
     // Use provided bucket or default
     this.bucket = this.config_.bucket || DEFAULT_BUCKET
-    this.useSSL = useSSL
-    this.logger_.info(`MinIO service initialized with bucket: ${this.bucket}, endpoint: ${endPoint}, port: ${port}, SSL: ${useSSL}`)
+    this.logger_.info(`MinIO service initialized with bucket: ${this.bucket}`)
 
-    // Initialize Minio client with parsed settings
+    // Initialize Minio client with hardcoded SSL settings
     this.client = new Client({
-      endPoint: endPoint,
-      port: port,
-      useSSL: useSSL,
+      endPoint: this.config_.endPoint,
+      port: 443,
+      useSSL: true,
       accessKey: this.config_.accessKey,
       secretKey: this.config_.secretKey
     })
@@ -192,22 +163,7 @@ class MinioFileProviderService extends AbstractFileProviderService {
     try {
       const parsedFilename = path.parse(file.filename)
       const fileKey = `${parsedFilename.name}-${ulid()}${parsedFilename.ext}`
-      
-      // Handle different content types properly
-      let content: Buffer
-      if (Buffer.isBuffer(file.content)) {
-        content = file.content
-      } else if (typeof file.content === 'string') {
-        // If it's a base64 string, decode it
-        if (file.content.match(/^[A-Za-z0-9+/]+=*$/)) {
-          content = Buffer.from(file.content, 'base64')
-        } else {
-          content = Buffer.from(file.content, 'binary')
-        }
-      } else {
-        // Handle ArrayBuffer, Uint8Array, or any other buffer-like type
-        content = Buffer.from(file.content as any)
-      }
+      const content = Buffer.from(file.content, 'binary')
 
       // Upload file with public-read access
       await this.client.putObject(
@@ -222,9 +178,8 @@ class MinioFileProviderService extends AbstractFileProviderService {
         }
       )
 
-      // Generate URL using the endpoint and bucket with correct protocol
-      const protocol = this.useSSL ? 'https' : 'http'
-      const url = `${protocol}://${this.config_.endPoint}/${this.bucket}/${fileKey}`
+      // Generate URL using the endpoint and bucket
+      const url = `https://${this.config_.endPoint}/${this.bucket}/${fileKey}`
 
       this.logger_.info(`Successfully uploaded file ${fileKey} to MinIO bucket ${this.bucket}`)
 
