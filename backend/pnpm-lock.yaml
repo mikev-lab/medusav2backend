@@ -18,7 +18,7 @@ importers:
         specifier: 2.12.1
         version: 2.12.1(@types/node@20.19.26)
       '@medusajs/core-flows':
-        specifier: ^2.12.2
+        specifier: ^2.12.1
         version: 2.12.2(@medusajs/framework@2.12.1(@medusajs/cli@2.12.1(@types/node@20.19.26))(@types/node@20.19.26)(ioredis@5.8.2)(vite@5.4.21(@types/node@20.19.26)))
       '@medusajs/dashboard':
         specifier: 2.12.1
