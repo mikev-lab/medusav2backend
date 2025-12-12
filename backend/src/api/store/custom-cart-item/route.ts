@@ -1,6 +1,6 @@
 // src/api/store/custom-cart-item/route.ts
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework";
-import { addToCartWorkflow } from "@medusajs/core-flows";
+import { addToCartWorkflow } from "@medusajs/medusa/core-flows";
 
 type RequestBody = {
   cart_id: string;
