@@ -29,7 +29,7 @@ export default async function priceSyncSubscriber(input: any) {
 
   if (isCartEvent) {
     // @ts-ignore
-    const cart = await cartService.retrieve(data.id, {
+    const cart = await cartService.retrieveCart(data.id, {
       relations: ["items"],
     })
 

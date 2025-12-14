@@ -24,11 +24,11 @@ export async function fetchShippoRates(items: any[], shippingAddress: any, boxSi
     }
 
     const fromAddress = {
-      name: "Store Owner",
-      street1: "123 Store St",
-      city: "Store City",
-      state: "CA",
-      zip: "90210",
+      name: "MCE Printing, LLC",
+      street1: "11033 118th Pl NE",
+      city: "Kirkland",
+      state: "WA",
+      zip: "98033",
       country: "US"
     }
 
