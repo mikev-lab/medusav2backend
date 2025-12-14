@@ -1,7 +1,7 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 import { ICartModuleService } from "@medusajs/framework/types"
-import { fetchShippoRates } from "../../../utils/shippo-helper"
+import { fetchShippoRates } from "../../../../utils/shippo-helper"
 
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   const { cart_id } = req.params
