@@ -11,35 +11,34 @@ export default async function seedBoxSizes({
   try {
       let boxSizesService;
 
-      // Try resolving 'service' which is often the key for the main service within the module container
       try {
-        boxSizesService = container.resolve("boxSizesService")
+        boxSizesService = container.resolve("boxSizes")
       } catch (e) {
          try {
-             // Fallback to generic 'service' or pascal case
-             boxSizesService = container.resolve("boxSizes")
+             boxSizesService = container.resolve("boxSizesService")
          } catch (e2) {
-             try {
-                 boxSizesService = container.resolve("boxSizesService")
-             } catch (e3) {
-                 // ignore
-             }
+             // ignore
          }
       }
 
-      // If still not found, try listing keys to debug (will log in catch block)
       if (!boxSizesService) {
-           // One last try: 'service' is the default for Module() factory?
            try {
                boxSizesService = container.resolve("service")
            } catch(e4) {}
       }
 
       if (!boxSizesService) {
-          throw new Error("Could not resolve boxSizes service. Tried: boxSizes, boxSizesService, service")
+          logger.warn("[BoxSizes Loader] Could not resolve boxSizes service. Seeding skipped.")
+          return
       }
 
       const service = boxSizesService as any
+
+      // Check for method existence to be safe
+      if (typeof service.listAndCountBoxSizes !== 'function') {
+           logger.warn(`[BoxSizes Loader] Resolved service does not have listAndCountBoxSizes method. Seeding skipped.`)
+           return;
+      }
 
       const [existing, count] = await service.listAndCountBoxSizes({ take: 1 })
 
@@ -66,12 +65,5 @@ export default async function seedBoxSizes({
       logger.info("Box sizes seeded.")
   } catch (err) {
       logger.error(`Failed to seed box sizes: ${err.message}`)
-      try {
-          // Log available keys for debugging
-          const keys = Object.keys((container as any).registrations || {})
-          logger.info(`Available container keys: ${keys.join(", ")}`)
-      } catch (e) {
-          // ignore
-      }
   }
 }

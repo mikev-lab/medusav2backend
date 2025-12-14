@@ -3,14 +3,15 @@ import { Modules } from "@medusajs/framework/utils"
 import { ICartModuleService } from "@medusajs/framework/types"
 
 export default async function priceSyncSubscriber(input: any) {
-  // Cast input to any to avoid type issues with SubscriberArgs
-  const { event, container } = input
+  // Correctly destructure SubscriberArgs
+  // input is { event: string, data: any, container: MedusaContainer, ... }
+  const { event: eventName, data, container } = input
 
   const cartService: ICartModuleService = container.resolve(Modules.CART)
 
-  // event is { name: string, data: any, ... }
-  const eventName = event.name
-  const data = event.data
+  if (!eventName) {
+      return
+  }
 
   const isCartEvent = eventName.startsWith("cart.")
 
