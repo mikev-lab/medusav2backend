@@ -9,38 +9,37 @@ export default async function seedBoxSizes({
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
 
   try {
-      let boxSizesService;
+      // Introspect container to find the service key
+      const registrations = (container as any).registrations || {}
+      const keys = Object.keys(registrations)
 
-      try {
-        boxSizesService = container.resolve("boxSizes")
-      } catch (e) {
-         try {
-             boxSizesService = container.resolve("boxSizesService")
-         } catch (e2) {
-             // ignore
-         }
+      console.log("[BoxSizes Loader] Available keys:", keys) // Stdout for visibility
+
+      let serviceKey = keys.find(k => k === "boxSizes" || k === "boxSizesService" || k === "service")
+
+      if (!serviceKey) {
+          serviceKey = keys.find(k => k.toLowerCase().includes("boxsize"))
       }
+
+      if (!serviceKey) {
+          serviceKey = "boxSizes"
+          console.log("[BoxSizes Loader] Could not find explicit key, defaulting to:", serviceKey)
+      } else {
+          console.log("[BoxSizes Loader] Found service key:", serviceKey)
+      }
+
+      const boxSizesService = container.resolve(serviceKey) as any
 
       if (!boxSizesService) {
-           try {
-               boxSizesService = container.resolve("service")
-           } catch(e4) {}
+          throw new Error(`Resolved service is null for key: ${serviceKey}`)
       }
 
-      if (!boxSizesService) {
-          logger.warn("[BoxSizes Loader] Could not resolve boxSizes service. Seeding skipped.")
-          return
-      }
-
-      const service = boxSizesService as any
-
-      // Check for method existence to be safe
-      if (typeof service.listAndCountBoxSizes !== 'function') {
-           logger.warn(`[BoxSizes Loader] Resolved service does not have listAndCountBoxSizes method. Seeding skipped.`)
+      if (typeof boxSizesService.listAndCountBoxSizes !== 'function') {
+           console.warn(`[BoxSizes Loader] Resolved service ${serviceKey} does not have listAndCountBoxSizes method. Keys: ${Object.keys(boxSizesService)}`)
            return;
       }
 
-      const [existing, count] = await service.listAndCountBoxSizes({ take: 1 })
+      const [existing, count] = await boxSizesService.listAndCountBoxSizes({ take: 1 })
 
       if (count > 0) {
         logger.info("Box sizes already exist, skipping seed.")
@@ -59,11 +58,12 @@ export default async function seedBoxSizes({
       logger.info(`Seeding ${data.length} box sizes...`)
 
       for (const size of data) {
-        await service.createBoxSizes(size)
+        await boxSizesService.createBoxSizes(size)
       }
 
       logger.info("Box sizes seeded.")
   } catch (err) {
-      logger.error(`Failed to seed box sizes: ${err.message}`)
+      logger.error(`[BoxSizes Loader] Failed to seed: ${err.message}`)
+      console.error("[BoxSizes Loader] Error details:", err)
   }
 }
