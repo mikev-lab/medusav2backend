@@ -10,18 +10,35 @@ export default async function seedBoxSizes({
 
   try {
       let boxSizesService;
+
+      // Try resolving 'service' which is often the key for the main service within the module container
       try {
-        boxSizesService = container.resolve("boxSizes")
-      } catch (e) {
-        // Try fallback
         boxSizesService = container.resolve("boxSizesService")
+      } catch (e) {
+         try {
+             // Fallback to generic 'service' or pascal case
+             boxSizesService = container.resolve("boxSizes")
+         } catch (e2) {
+             try {
+                 boxSizesService = container.resolve("boxSizesService")
+             } catch (e3) {
+                 // ignore
+             }
+         }
+      }
+
+      // If still not found, try listing keys to debug (will log in catch block)
+      if (!boxSizesService) {
+           // One last try: 'service' is the default for Module() factory?
+           try {
+               boxSizesService = container.resolve("service")
+           } catch(e4) {}
       }
 
       if (!boxSizesService) {
-          throw new Error("Could not resolve boxSizes or boxSizesService")
+          throw new Error("Could not resolve boxSizes service. Tried: boxSizes, boxSizesService, service")
       }
 
-      // Cast to any for usage
       const service = boxSizesService as any
 
       const [existing, count] = await service.listAndCountBoxSizes({ take: 1 })

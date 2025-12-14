@@ -32,11 +32,17 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
     this.container_ = container
 
     const apiKey = process.env.SHIPPO_API_KEY || "dummy_key_for_build"
-    // @ts-ignore
-    this.shippo_ = shippo(apiKey)
+    try {
+        // @ts-ignore
+        this.shippo_ = shippo(apiKey)
+    } catch (e) {
+        console.warn("Failed to initialize Shippo client", e)
+    }
   }
 
   async getFulfillmentOptions(): Promise<FulfillmentOption[]> {
+    // Ensure we return a valid array of options
+    // These IDs will be stored in the shipping option data
     return [
       { id: "shippo-standard", name: "Standard Shipping" },
       { id: "shippo-express", name: "Express Shipping" }
@@ -56,6 +62,10 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
   }
 
   async canCalculate(data: any): Promise<boolean> {
+    // If we have items, we can calculate.
+    // data.items should be present.
+    // Return true to allow the option to show up in checkout/admin?
+    // In admin creation, data might be minimal.
     return true
   }
 
@@ -66,12 +76,13 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
   ): Promise<{ price: number; is_calculated_price: boolean }> {
     let boxSizes: BoxSize[] = []
     try {
+      // In the provider (global container scope), the module key is "boxSizes"
       const boxSizesService = this.container_.resolve("boxSizes")
       // list all
       const [sizes] = await boxSizesService.listAndCountBoxSizes({ take: 100 })
       boxSizes = sizes
     } catch (e) {
-      console.warn("Could not load BoxSizes service, using defaults if any.")
+      console.warn("Could not load BoxSizes service in fulfillment provider, using defaults if any.")
     }
 
     // 1. Pack items
@@ -100,6 +111,7 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
     }
 
     if (!process.env.SHIPPO_API_KEY) {
+        // Fallback for dev/demo without key
         return {
             price: 1500,
             is_calculated_price: true
