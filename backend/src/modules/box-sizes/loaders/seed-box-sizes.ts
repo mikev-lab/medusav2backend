@@ -9,9 +9,22 @@ export default async function seedBoxSizes({
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
 
   try {
-      const boxSizesService = container.resolve("boxSizes") as any
+      let boxSizesService;
+      try {
+        boxSizesService = container.resolve("boxSizes")
+      } catch (e) {
+        // Try fallback
+        boxSizesService = container.resolve("boxSizesService")
+      }
 
-      const [existing, count] = await boxSizesService.listAndCountBoxSizes({ take: 1 })
+      if (!boxSizesService) {
+          throw new Error("Could not resolve boxSizes or boxSizesService")
+      }
+
+      // Cast to any for usage
+      const service = boxSizesService as any
+
+      const [existing, count] = await service.listAndCountBoxSizes({ take: 1 })
 
       if (count > 0) {
         logger.info("Box sizes already exist, skipping seed.")
@@ -30,11 +43,18 @@ export default async function seedBoxSizes({
       logger.info(`Seeding ${data.length} box sizes...`)
 
       for (const size of data) {
-        await boxSizesService.createBoxSizes(size)
+        await service.createBoxSizes(size)
       }
 
       logger.info("Box sizes seeded.")
   } catch (err) {
       logger.error(`Failed to seed box sizes: ${err.message}`)
+      try {
+          // Log available keys for debugging
+          const keys = Object.keys((container as any).registrations || {})
+          logger.info(`Available container keys: ${keys.join(", ")}`)
+      } catch (e) {
+          // ignore
+      }
   }
 }
