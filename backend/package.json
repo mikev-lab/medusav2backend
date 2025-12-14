@@ -41,7 +41,9 @@
     "minio": "^8.0.3",
     "pg": "^8.13.1",
     "resend": "4.0.1",
-    "ulid": "^2.3.0"
+    "shippo": "^2.15.0",
+    "ulid": "^2.3.0",
+    "zod": "3"
   },
   "devDependencies": {
     "@medusajs/test-utils": "2.10.2",

@@ -51,6 +51,25 @@ const medusaConfig = {
   },
   modules: [
     {
+      key: "boxSizes",
+      resolve: "./src/modules/box-sizes",
+    },
+    {
+      key: Modules.FULFILLMENT,
+      resolve: '@medusajs/fulfillment',
+      options: {
+        providers: [
+          {
+            resolve: './src/modules/mceprinting-fulfillment',
+            id: 'mceprinting-fulfillment',
+            options: {
+              // Provider options if needed
+            }
+          }
+        ]
+      }
+    },
+    {
       key: Modules.FILE,
       resolve: '@medusajs/file',
       options: {
