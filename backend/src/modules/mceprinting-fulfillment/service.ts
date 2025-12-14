@@ -5,7 +5,10 @@ import {
 import {
   FulfillmentOption
 } from "@medusajs/framework/types"
-import shippo from "shippo"
+
+// Use require for legacy CommonJS support of shippo library
+// to avoid "default is not a function" errors in ESM/TS interop.
+const shippo = require("shippo")
 
 type BoxSize = {
   id: string
@@ -33,7 +36,6 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
 
     const apiKey = process.env.SHIPPO_API_KEY || "dummy_key_for_build"
     try {
-        // @ts-ignore
         this.shippo_ = shippo(apiKey)
     } catch (e) {
         console.warn("Failed to initialize Shippo client", e)
@@ -62,21 +64,16 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
   }
 
   async canCalculate(data: any): Promise<boolean> {
-    // If we have items, we can calculate.
-    // data.items should be present.
-    // Return true to allow the option to show up in checkout/admin?
-    // In admin creation, data might be minimal.
     return true
   }
 
   async calculateFulfillmentOptionPrice(
     optionData: any,
-    data: any, // Typed as any to avoid missing property errors
+    data: any,
     context: any
   ): Promise<{ price: number; is_calculated_price: boolean }> {
     let boxSizes: BoxSize[] = []
     try {
-      // In the provider (global container scope), the module key is "boxSizes"
       const boxSizesService = this.container_.resolve("boxSizes")
       // list all
       const [sizes] = await boxSizesService.listAndCountBoxSizes({ take: 100 })
@@ -86,7 +83,6 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
     }
 
     // 1. Pack items
-    // data.items comes from the Cart Module's calculation context
     const parcels = this.packItems(data.items || [], boxSizes)
 
     // 2. Address
@@ -111,7 +107,6 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
     }
 
     if (!process.env.SHIPPO_API_KEY) {
-        // Fallback for dev/demo without key
         return {
             price: 1500,
             is_calculated_price: true
