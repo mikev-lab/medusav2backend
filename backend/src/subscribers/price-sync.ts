@@ -3,13 +3,25 @@ import { Modules } from "@medusajs/framework/utils"
 import { ICartModuleService } from "@medusajs/framework/types"
 
 export default async function priceSyncSubscriber(input: any) {
-  // Correctly destructure SubscriberArgs
-  // input is { event: string, data: any, container: MedusaContainer, ... }
-  const { event: eventName, data, container } = input
+  // input is { event: { name: string, data: any }, container: MedusaContainer, ... }
+  // OR input is { event: string, data: any, container: ... }
+  // We handle both to be safe against framework version differences.
+
+  const { container } = input
+
+  let eventName = input.event
+  let data = input.data
+
+  // If event is an object, extract name and data from it
+  if (typeof eventName === 'object' && eventName !== null) {
+      if (eventName.data) data = eventName.data
+      if (eventName.name) eventName = eventName.name
+  }
 
   const cartService: ICartModuleService = container.resolve(Modules.CART)
 
-  if (!eventName) {
+  if (typeof eventName !== 'string') {
+      console.warn(`[PriceSync] Could not determine event name. Input event type: ${typeof input.event}`)
       return
   }
 
@@ -54,6 +66,9 @@ async function syncPrice(item: any, cartService: ICartModuleService) {
     }
   } else {
     if (metadata.material) {
+        // We log error instead of throwing to prevent blocking the cart flow if it's critical but we want to fail softly?
+        // User said: "generate an error".
+        // Throwing here inside a subscriber might be async and just logged by event bus.
         throw new Error(`Item ${item.id} is missing custom_unit_price metadata.`)
     }
   }
