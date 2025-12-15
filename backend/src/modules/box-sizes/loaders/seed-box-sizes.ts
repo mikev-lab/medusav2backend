@@ -13,7 +13,7 @@ export default async function seedBoxSizes({
       // The internal service is named camelCased model name + "Service"
       const boxSizeService = container.resolve("boxSizeService") as any
 
-      const [existing, count] = await boxSizeService.listAndCount({ take: 1 })
+      const [existing, count] = await boxSizeService.listAndCount({}, { take: 1 })
 
       if (count > 0) {
         logger.info("Box sizes already exist, skipping seed.")
