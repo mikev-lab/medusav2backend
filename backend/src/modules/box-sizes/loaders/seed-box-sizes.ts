@@ -51,10 +51,15 @@ export default async function seedBoxSizes({
         return
       }
 
-      const seedPath = path.resolve(process.cwd(), "box-sizes-seed.json")
+      let seedPath = path.resolve(process.cwd(), "box-sizes-seed.json")
 
       if (!fs.existsSync(seedPath)) {
-         logger.warn(`Box size seed file not found at ${seedPath}`)
+         // Fallback for production build structure where cwd is .medusa/server
+         seedPath = path.resolve(process.cwd(), "../../box-sizes-seed.json")
+      }
+
+      if (!fs.existsSync(seedPath)) {
+         logger.warn(`Box size seed file not found at ${seedPath} (cwd: ${process.cwd()})`)
          return
       }
 
