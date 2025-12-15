@@ -9,37 +9,11 @@ export default async function seedBoxSizes({
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
 
   try {
-      // Introspect container to find the service key
-      const registrations = (container as any).registrations || {}
-      const keys = Object.keys(registrations)
+      // Resolve the internal service for the BoxSize model
+      // The internal service is named camelCased model name + "Service"
+      const boxSizeService = container.resolve("boxSizeService") as any
 
-      console.log("[BoxSizes Loader] Available keys:", keys) // Stdout for visibility
-
-      let serviceKey: string | undefined = keys.find(k => k === "boxSizes" || k === "boxSizesService" || k === "service")
-
-      if (!serviceKey) {
-          serviceKey = keys.find(k => k.toLowerCase().includes("boxsize"))
-      }
-
-      if (!serviceKey) {
-          serviceKey = "boxSizes"
-          console.log("[BoxSizes Loader] Could not find explicit key, defaulting to:", serviceKey)
-      } else {
-          console.log("[BoxSizes Loader] Found service key:", serviceKey)
-      }
-
-      const boxSizesService = container.resolve(serviceKey) as any
-
-      if (!boxSizesService) {
-          throw new Error(`Resolved service is null for key: ${serviceKey}`)
-      }
-
-      if (typeof boxSizesService.listAndCountBoxSizes !== 'function') {
-           console.warn(`[BoxSizes Loader] Resolved service ${serviceKey} does not have listAndCountBoxSizes method. Keys: ${Object.keys(boxSizesService)}`)
-           return;
-      }
-
-      const [existing, count] = await boxSizesService.listAndCountBoxSizes({ take: 1 })
+      const [existing, count] = await boxSizeService.listAndCount({ take: 1 })
 
       if (count > 0) {
         logger.info("Box sizes already exist, skipping seed.")
@@ -58,7 +32,8 @@ export default async function seedBoxSizes({
       logger.info(`Seeding ${data.length} box sizes...`)
 
       for (const size of data) {
-        await boxSizesService.createBoxSizes(size)
+        // Internal service uses 'create'
+        await boxSizeService.create(size)
       }
 
       logger.info("Box sizes seeded.")
