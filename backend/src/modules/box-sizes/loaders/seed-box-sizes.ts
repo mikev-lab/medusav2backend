@@ -10,8 +10,39 @@ export default async function seedBoxSizes({
 
   try {
       // Resolve the internal service for the BoxSize model
-      // The internal service is named camelCased model name + "Service"
       const boxSizeService = container.resolve("boxSizeService") as any
+
+      // FAILSAFE: Ensure table exists using raw SQL
+      // This handles cases where migrations haven't run or module isolation prevents visibility
+      // We assume Postgres dialect
+      try {
+          // Get the manager from the service (standard Medusa/MikroORM pattern)
+          // or resolve the PG connection if available.
+          // boxSizeService is an instance of AbstractService which has a 'manager' property (SqlEntityManager)
+          const manager = boxSizeService.manager || (container.resolve("manager") as any)
+
+          if (manager) {
+              await manager.execute(`
+                CREATE TABLE IF NOT EXISTS "box_size" (
+                  "id" text not null,
+                  "name" text not null,
+                  "length" real not null,
+                  "width" real not null,
+                  "height" real not null,
+                  "weight_limit" real not null,
+                  "created_at" timestamptz not null default now(),
+                  "updated_at" timestamptz not null default now(),
+                  "deleted_at" timestamptz null,
+                  constraint "box_size_pkey" primary key ("id")
+                );
+              `)
+              logger.info("[BoxSizes Loader] Verified 'box_size' table existence.")
+          } else {
+              logger.warn("[BoxSizes Loader] Could not resolve EntityManager to verify table existence.")
+          }
+      } catch (dbErr) {
+          logger.warn(`[BoxSizes Loader] Failed to verify/create table: ${dbErr.message}`)
+      }
 
       const [existing, count] = await boxSizeService.listAndCount({}, { take: 1 })
 
@@ -32,7 +63,6 @@ export default async function seedBoxSizes({
       logger.info(`Seeding ${data.length} box sizes...`)
 
       for (const size of data) {
-        // Internal service uses 'create'
         await boxSizeService.create(size)
       }
 
