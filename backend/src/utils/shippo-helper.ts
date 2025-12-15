@@ -43,7 +43,7 @@ export async function fetchShippoRates(items: any[], shippingAddress: any, boxSi
 
     try {
       console.log("[ShippoHelper] Creating shipment with Shippo...")
-      const shipment = await client.shipment.create({
+      const shipment = await client.shipments.create({
         address_from: fromAddress,
         address_to: toAddress,
         parcels: parcels.map(p => ({

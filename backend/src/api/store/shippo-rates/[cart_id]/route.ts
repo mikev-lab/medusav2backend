@@ -26,13 +26,23 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       // 2. Resolve Box Sizes
       let boxSizes: any[] = []
       try {
-        // Try resolving by key, then cast
-        const boxSizesService = req.scope.resolve("boxSizes") as any
-        const [sizes] = await boxSizesService.listAndCountBoxSizes({ take: 100 })
+        // Try resolving by internal service key for robustness
+        const boxSizesService = req.scope.resolve("boxSizeService") as any
+        // Use correct signature: listAndCount({}, { take: 100 })
+        const [sizes] = await boxSizesService.listAndCount({}, { take: 100 })
         boxSizes = sizes
         console.log(`[ShippoRates] Resolved ${boxSizes.length} box sizes from DB`)
       } catch (e) {
         console.warn(`[ShippoRates] Failed to resolve boxSizes: ${e.message}. Using default.`)
+        // Try resolving main module as fallback
+        try {
+            const boxSizesModule = req.scope.resolve("boxSizes") as any
+            const [sizes] = await boxSizesModule.listAndCountBoxSizes({}, { take: 100 })
+            boxSizes = sizes
+            console.log(`[ShippoRates] Resolved ${boxSizes.length} box sizes from Main Module`)
+        } catch (e2) {
+             console.warn(`[ShippoRates] Fallback resolution failed: ${e2.message}`)
+        }
       }
 
       // 3. Fetch Rates
