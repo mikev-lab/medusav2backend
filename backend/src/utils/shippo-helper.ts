@@ -43,16 +43,17 @@ export async function fetchShippoRates(items: any[], shippingAddress: any, boxSi
 
     try {
       console.log("[ShippoHelper] Creating shipment with Shippo...")
+      // Using camelCase properties for v2 SDK
       const shipment = await client.shipments.create({
-        address_from: fromAddress,
-        address_to: toAddress,
+        addressFrom: fromAddress,
+        addressTo: toAddress,
         parcels: parcels.map(p => ({
-          length: p.length,
-          width: p.width,
-          height: p.height,
-          distance_unit: "cm",
-          weight: p.weight_grams + TARE_WEIGHT_GRAMS,
-          mass_unit: "g"
+          length: String(p.length),
+          width: String(p.width),
+          height: String(p.height),
+          distanceUnit: "cm",
+          weight: String(p.weight_grams + TARE_WEIGHT_GRAMS),
+          massUnit: "g"
         })),
         async: false
       })
