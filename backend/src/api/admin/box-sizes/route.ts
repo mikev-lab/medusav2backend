@@ -10,14 +10,15 @@ const createBoxSizeSchema = z.object({
 })
 
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
-  const boxSizesService = req.scope.resolve("boxSizes") as any
+  // Use internal service 'boxSizeService' for direct model access
+  const boxSizesService = req.scope.resolve("boxSizeService") as any
 
   // Safe query parsing
   // req.query might contain strings for offset/limit
   const offset = req.query.offset ? Number(req.query.offset) : 0
   const limit = req.query.limit ? Number(req.query.limit) : 10
 
-  const [boxSizes, count] = await boxSizesService.listAndCountBoxSizes(
+  const [boxSizes, count] = await boxSizesService.listAndCount(
     {},
     {
         skip: offset,
@@ -36,9 +37,9 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
 
 export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   const parsed = createBoxSizeSchema.parse(req.body)
-  const boxSizesService = req.scope.resolve("boxSizes") as any
+  const boxSizesService = req.scope.resolve("boxSizeService") as any
 
-  const boxSize = await boxSizesService.createBoxSizes(parsed)
+  const boxSize = await boxSizesService.create(parsed)
 
   res.status(201).json({ box_size: boxSize })
 }

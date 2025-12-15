@@ -1,5 +1,5 @@
 // Shared Shippo logic
-const shippo = require("shippo")
+const { Shippo } = require("shippo")
 
 // 1 lb in grams
 const TARE_WEIGHT_GRAMS = 453.6
@@ -12,7 +12,7 @@ export async function fetchShippoRates(items: any[], shippingAddress: any, boxSi
         return []
     }
 
-    const client = shippo(apiKey)
+    const client = new Shippo({ apiKeyHeader: apiKey })
     const parcels = packItems(items, boxSizes)
 
     console.log(`[ShippoHelper] Generated ${parcels.length} parcels for ${items.length} items`)
