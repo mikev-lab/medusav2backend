@@ -21,6 +21,22 @@ export async function fetchShippoRates(items: any[], shippingAddress: any, boxSi
         return []
     }
 
+    // Explicit Logging of Packing Details
+    parcels.forEach((parcel, index) => {
+        console.log(`[ShippoHelper] Parcel #${index + 1}: ${parcel.name} (${parcel.length}x${parcel.width}x${parcel.height} cm)`)
+        console.log(`[ShippoHelper]   - Total Weight: ${(parcel.weight_grams + TARE_WEIGHT_GRAMS).toFixed(2)}g (Product: ${parcel.weight_grams}g + Tare: ${TARE_WEIGHT_GRAMS}g)`)
+        console.log(`[ShippoHelper]   - Contents:`)
+        if (parcel.items && Array.isArray(parcel.items)) {
+            parcel.items.forEach((item: any, i: number) => {
+                const metadata = item.metadata || {}
+                console.log(`[ShippoHelper]     ${i + 1}. ${item.title || "Item"} (Qty: ${item.quantity})`)
+                console.log(`[ShippoHelper]        - Unit Weight: ${metadata.weight}g`)
+                console.log(`[ShippoHelper]        - Unit Dims: ${metadata.length}x${metadata.width}x${metadata.height} cm`)
+                console.log(`[ShippoHelper]        - Total Item Weight: ${Number(metadata.weight) * item.quantity}g`)
+            })
+        }
+    })
+
     const toAddress = {
       name: (shippingAddress?.first_name || "") + " " + (shippingAddress?.last_name || ""),
       street1: shippingAddress?.address_1,
