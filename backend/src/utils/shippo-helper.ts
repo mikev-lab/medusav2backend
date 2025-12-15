@@ -62,7 +62,13 @@ export async function fetchShippoRates(items: any[], shippingAddress: any, boxSi
         console.log(`[ShippoHelper] Received ${shipment.rates.length} rates`)
         return shipment.rates.sort((a: any, b: any) => parseFloat(a.amount) - parseFloat(b.amount))
       } else {
-          console.warn("[ShippoHelper] Shipment created but no rates returned.", shipment)
+          console.warn("[ShippoHelper] Shipment created but no rates returned.")
+          if (shipment.messages && shipment.messages.length > 0) {
+              console.warn("[ShippoHelper] Shipment Messages:", JSON.stringify(shipment.messages, null, 2))
+          } else {
+              // Log the full shipment object for debugging if no specific messages found
+              console.warn("[ShippoHelper] Full shipment response:", JSON.stringify(shipment, null, 2))
+          }
       }
     } catch (error) {
       console.error("[ShippoHelper] Shippo API Error:", error)
