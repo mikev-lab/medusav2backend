@@ -12,7 +12,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   try {
       // 1. Retrieve Cart
       // @ts-ignore
-      const cart = await cartService.retrieve(cart_id, {
+      const cart = await cartService.retrieveCart(cart_id, {
         relations: ["items", "shipping_address"]
       })
 
