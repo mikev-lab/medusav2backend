@@ -15,7 +15,7 @@ export default async function seedBoxSizes({
 
       console.log("[BoxSizes Loader] Available keys:", keys) // Stdout for visibility
 
-      let serviceKey = keys.find(k => k === "boxSizes" || k === "boxSizesService" || k === "service")
+      let serviceKey: string | undefined = keys.find(k => k === "boxSizes" || k === "boxSizesService" || k === "service")
 
       if (!serviceKey) {
           serviceKey = keys.find(k => k.toLowerCase().includes("boxsize"))
