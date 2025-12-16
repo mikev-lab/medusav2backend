@@ -46,8 +46,13 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
     data: any,
     context: any
   ): Promise<any> {
+      console.log("[McePrintingFulfillment] calculatePrice called")
+      console.log("  - optionData:", JSON.stringify(optionData))
+      console.log("  - data keys:", Object.keys(data || {}))
       // Reuse logic
-      return await this.calculateFulfillmentOptionPrice(optionData, data, context)
+      const result = await this.calculateFulfillmentOptionPrice(optionData, data, context)
+      console.log("[McePrintingFulfillment] calculatePrice returning:", result)
+      return result
   }
 
   async calculateFulfillmentOptionPrice(
@@ -55,13 +60,17 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
     data: any,
     context: any
   ): Promise<{ price: number; is_calculated_price: boolean }> {
+    console.log("[McePrintingFulfillment] Internal Calc called")
 
     // Support "forcing" a specific rate via data passed from storefront
     // In some flows, 'data' contains the cart info directly, in others it might be nested
     const cartItems = data.items || []
     const shippingAddress = data.shipping_address || data.shippingAddress
 
+    console.log(`[McePrintingFulfillment] Items: ${cartItems.length}, Address present: ${!!shippingAddress}`)
+
     if (data && data.shippo_amount) {
+        console.log(`[McePrintingFulfillment] Forced rate found: ${data.shippo_amount}`)
         return {
             price: Number(data.shippo_amount) * 100, // Convert to cents
             is_calculated_price: true
@@ -97,12 +106,14 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
     if (rates.length > 0) {
         // Default: Cheapest
         const bestRate = rates[0]
+        console.log(`[McePrintingFulfillment] Best rate found: ${bestRate.amount}`)
         return {
             price: parseFloat(bestRate.amount) * 100,
             is_calculated_price: true
         }
     }
 
+    console.warn("[McePrintingFulfillment] No rates found, returning fallback 2500")
     // Fallback if no rates found
     return {
        price: 2500, // $25.00 fallback
