@@ -23,7 +23,7 @@ export default async function logTaxDebugSubscriber(input: any) {
   try {
     // Retrieve cart with necessary relations for tax debugging
     // @ts-ignore
-    const cart = await cartService.retrieveCart(data.id, {
+    const cartRaw = await cartService.retrieveCart(data.id, {
       relations: [
         "shipping_address",
         "region",
@@ -33,6 +33,9 @@ export default async function logTaxDebugSubscriber(input: any) {
         "shipping_methods.tax_lines"
       ],
     })
+
+    // Cast to any to avoid strict type checks on DTOs vs Models
+    const cart = cartRaw as any
 
     const address = cart.shipping_address
     const region = cart.region
