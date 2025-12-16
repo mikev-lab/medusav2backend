@@ -22,8 +22,8 @@ export default async function logTaxDebugSubscriber(input: any) {
 
   try {
     // Retrieve cart with necessary relations for tax debugging
-    // Using retrieve() as per Medusa V2 standard
-    const cart = await cartService.retrieve(data.id, {
+    // @ts-ignore
+    const cart = await cartService.retrieveCart(data.id, {
       relations: [
         "shipping_address",
         "region",
