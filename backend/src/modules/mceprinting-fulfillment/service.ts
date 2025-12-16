@@ -40,6 +40,16 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
     return true
   }
 
+  // Required by AbstractFulfillmentProviderService
+  async calculatePrice(
+    optionData: any,
+    data: any,
+    context: any
+  ): Promise<any> {
+      // Reuse logic
+      return await this.calculateFulfillmentOptionPrice(optionData, data, context)
+  }
+
   async calculateFulfillmentOptionPrice(
     optionData: any,
     data: any,
@@ -47,6 +57,10 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
   ): Promise<{ price: number; is_calculated_price: boolean }> {
 
     // Support "forcing" a specific rate via data passed from storefront
+    // In some flows, 'data' contains the cart info directly, in others it might be nested
+    const cartItems = data.items || []
+    const shippingAddress = data.shipping_address || data.shippingAddress
+
     if (data && data.shippo_amount) {
         return {
             price: Number(data.shippo_amount) * 100, // Convert to cents
@@ -57,16 +71,28 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
     // Resolve Box Sizes
     let boxSizes: any[] = []
     try {
-      const boxSizesService = this.container_.resolve("boxSizes")
-      const [sizes] = await boxSizesService.listAndCountBoxSizes({ take: 100 })
-      boxSizes = sizes
+        // Robust resolution: try Internal Service first, then Main Module
+        try {
+            const boxSizesService = this.container_.resolve("boxSizeService")
+            const [sizes] = await boxSizesService.listAndCount({}, { take: 100 })
+            boxSizes = sizes
+        } catch (innerErr) {
+            const boxSizesModule = this.container_.resolve("boxSizes")
+            if (typeof boxSizesModule.listAndCountBoxSizes === 'function') {
+                const [sizes] = await boxSizesModule.listAndCountBoxSizes({}, { take: 100 })
+                boxSizes = sizes
+            } else {
+                const [sizes] = await boxSizesModule.listAndCount({}, { take: 100 })
+                boxSizes = sizes
+            }
+        }
     } catch (e) {
-      // ignore
+      console.warn(`[McePrintingFulfillment] Failed to resolve boxSizes: ${e.message}`)
     }
 
     // Fetch Rates
     const apiKey = process.env.SHIPPO_API_KEY || ""
-    const rates = await fetchShippoRates(data.items || [], data.shipping_address, boxSizes, apiKey)
+    const rates = await fetchShippoRates(cartItems, shippingAddress, boxSizes, apiKey)
 
     if (rates.length > 0) {
         // Default: Cheapest
@@ -77,8 +103,9 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
         }
     }
 
+    // Fallback if no rates found
     return {
-       price: 2500,
+       price: 2500, // $25.00 fallback
        is_calculated_price: true
     }
   }
