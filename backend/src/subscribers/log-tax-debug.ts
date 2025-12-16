@@ -37,80 +37,79 @@ export default async function logTaxDebugSubscriber(input: any) {
     const cart = cartRaw as any
     const address = cart.shipping_address
 
-    // Fetch region
+    // Fetch store region info
     let region: any = null
     if (cart.region_id) {
         try {
             // @ts-ignore
-            const regions = await regionService.listRegions(
-                { id: [cart.region_id] }
-            )
+            const regions = await regionService.listRegions({ id: [cart.region_id] })
             region = regions[0]
         } catch (e) {
             logger.warn(`[TaxDebug] Could not retrieve region ${cart.region_id}: ${e.message}`)
         }
     }
 
-    // Fetch Tax Rates specifically for this region
-    let taxRates: any[] = []
-    if (region) {
+    // DEBUG TAX REGION MATCHING
+    let matchedTaxRegion: any = null
+    let potentialMatches: any[] = []
+
+    if (address && address.country_code) {
         try {
-             // Try to list tax rates for this region using the Tax Module
-             // Note: In Medusa V2, tax rates are often queried by tax_region_id which might map to region_id or be separate.
-             // We'll try to list all rates first to see what's there.
+            // 1. Get all tax regions for this country
+            // @ts-ignore
+            potentialMatches = await taxModuleService.listTaxRegions({
+                country_code: address.country_code
+            })
+
+            // 2. Try to find precise match for province
+            const provinceToMatch = address.province || ""
+            matchedTaxRegion = potentialMatches.find(tr => {
+                // Exact match or 'us-' prefix match
+                return tr.province_code === provinceToMatch ||
+                       tr.province_code === `us-${provinceToMatch.toLowerCase()}` ||
+                       tr.province_code === provinceToMatch.toLowerCase()
+            })
+
+        } catch (e) {
+            logger.warn(`[TaxDebug] Tax Region Lookup Failed: ${e.message}`)
+        }
+    }
+
+    // Fetch rates if we found a matched tax region
+    let taxRates: any[] = []
+    if (matchedTaxRegion) {
+        try {
              // @ts-ignore
              taxRates = await taxModuleService.listTaxRates({
-                 tax_region_id: region.id
+                 tax_region_id: matchedTaxRegion.id
              })
         } catch (e) {
-            logger.warn(`[TaxDebug] Could not list tax rates for region ${region.id}: ${e.message}`)
+            logger.warn(`[TaxDebug] Could not list tax rates for tax region ${matchedTaxRegion.id}: ${e.message}`)
         }
     }
 
     logger.info(`
 [TaxDebug] ---------------------------------------------------
 [TaxDebug] Event: ${eventName} | Cart: ${cart.id}
-[TaxDebug] Region: ${region?.name || cart.region_id}
-[TaxDebug] Tax Settings: Automatic=${region?.automatic_taxes}, GiftCardsTaxable=${region?.gift_cards_taxable}
-[TaxDebug] Tax Rates Found for Region: ${taxRates.length}
-`)
-
-    if (taxRates.length > 0) {
-         taxRates.forEach(tr => {
-             logger.info(`  - Rate: ${tr.name} | ${tr.rate}% | Code: ${tr.code} | Rules: ${JSON.stringify(tr.rules || [])}`)
-         })
-    } else {
-        logger.info(`  - No Tax Rates found linked to Region ID ${region?.id}`)
-    }
-
-    logger.info(`
+[TaxDebug] Region: ${region?.name || cart.region_id} (Automatic Taxes: ${region?.automatic_taxes})
 [TaxDebug] Shipping Address:
   City: ${address?.city || 'N/A'}
-  Province/State: ${address?.province || 'N/A'}
-  Postal: ${address?.postal_code || 'N/A'}
-  Country: ${address?.country_code || 'N/A'}
-[TaxDebug] ---------------------------------------------------
+  Province: '${address?.province}' (Code: ${address?.province_code})
+  Country: ${address?.country_code}
+
+[TaxDebug] Tax Region Matching:
+  - Country '${address?.country_code}' has ${potentialMatches.length} tax regions defined.
+  - Looking for Province: '${address?.province}'
+  - MATCH RESULT: ${matchedTaxRegion ? `FOUND (ID: ${matchedTaxRegion.id}, Province: ${matchedTaxRegion.province_code})` : "NOT FOUND"}
+
+[TaxDebug] Tax Rates for Matched Region: ${taxRates.length}
+${taxRates.map(tr => `  - Rate: ${tr.name} (${tr.rate}%) Code: ${tr.code}`).join('\n')}
+
 [TaxDebug] Tax Summary:
   Item Tax Total: ${cart.item_tax_total}
-  Shipping Tax Total: ${cart.shipping_tax_total}
   Total Tax: ${cart.tax_total}
 [TaxDebug] ---------------------------------------------------
 `)
-
-    // ... existing item logging ...
-    if (cart.items && cart.items.length > 0) {
-      logger.info(`[TaxDebug] Item Tax Lines:`)
-      cart.items.forEach((item: any) => {
-        if (item.tax_lines && item.tax_lines.length > 0) {
-          item.tax_lines.forEach((tl: any) => {
-             logger.info(`  - Item ${item.id}: Code '${tl.code}', Rate ${tl.rate}%, Provider '${tl.provider_id}'`)
-          })
-        } else {
-           logger.info(`  - Item ${item.id}: NO TAX LINES`)
-        }
-      })
-    }
-    logger.info(`[TaxDebug] ---------------------------------------------------\n`)
 
   } catch (error) {
     logger.error(`[TaxDebug] Error retrieving cart details: ${error.message}`, error)
