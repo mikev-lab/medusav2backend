@@ -23,9 +23,9 @@ export default async function logTaxDebugSubscriber(input: any) {
 
   try {
     // Retrieve cart with necessary relations for tax debugging
-    // Removed "region" from relations as it caused ORM errors. We fetch it separately.
-    // @ts-ignore
-    const cartRaw = await cartService.retrieveCart(data.id, {
+    // We use 'retrieveCart' as it appears to be the runtime method in this environment (likely legacy or custom adapter)
+    // We cast to any to bypass strict checks on the service interface.
+    const cartRaw = await (cartService as any).retrieveCart(data.id, {
       relations: [
         "shipping_address",
         "items",
@@ -41,10 +41,11 @@ export default async function logTaxDebugSubscriber(input: any) {
     const address = cart.shipping_address
 
     // Fetch region separately if region_id exists
+    // We use standard 'retrieve' method for Region module, cast to any to avoid TS errors
     let region: any = null
     if (cart.region_id) {
         try {
-            region = await regionService.retrieve(cart.region_id)
+            region = await (regionService as any).retrieve(cart.region_id)
         } catch (e) {
             logger.warn(`[TaxDebug] Could not retrieve region ${cart.region_id}: ${e.message}`)
         }
