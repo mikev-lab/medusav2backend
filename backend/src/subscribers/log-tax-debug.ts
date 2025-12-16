@@ -1,6 +1,6 @@
 import { SubscriberConfig } from "@medusajs/framework"
 import { Modules, ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import { ICartModuleService } from "@medusajs/framework/types"
+import { ICartModuleService, IRegionModuleService } from "@medusajs/framework/types"
 
 export default async function logTaxDebugSubscriber(input: any) {
   const { container } = input
@@ -18,15 +18,16 @@ export default async function logTaxDebugSubscriber(input: any) {
   if (!data?.id) return
 
   const cartService: ICartModuleService = container.resolve(Modules.CART)
+  const regionService: IRegionModuleService = container.resolve(Modules.REGION)
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
 
   try {
     // Retrieve cart with necessary relations for tax debugging
+    // Removed "region" from relations as it caused ORM errors. We fetch it separately.
     // @ts-ignore
     const cartRaw = await cartService.retrieveCart(data.id, {
       relations: [
         "shipping_address",
-        "region",
         "items",
         "items.tax_lines",
         "shipping_methods",
@@ -38,12 +39,21 @@ export default async function logTaxDebugSubscriber(input: any) {
     const cart = cartRaw as any
 
     const address = cart.shipping_address
-    const region = cart.region
+
+    // Fetch region separately if region_id exists
+    let region: any = null
+    if (cart.region_id) {
+        try {
+            region = await regionService.retrieve(cart.region_id)
+        } catch (e) {
+            logger.warn(`[TaxDebug] Could not retrieve region ${cart.region_id}: ${e.message}`)
+        }
+    }
 
     logger.info(`
 [TaxDebug] ---------------------------------------------------
 [TaxDebug] Event: ${eventName} | Cart: ${cart.id}
-[TaxDebug] Region: ${region?.name} (Tax Provider: ${region?.automatic_taxes ? 'Automatic' : 'Manual'})
+[TaxDebug] Region: ${region?.name || cart.region_id} (Tax Provider: ${region?.automatic_taxes ? 'Automatic' : 'Manual'})
 [TaxDebug] Shipping Address:
   City: ${address?.city || 'N/A'}
   Province/State: ${address?.province || 'N/A'}
