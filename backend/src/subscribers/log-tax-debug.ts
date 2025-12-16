@@ -23,7 +23,7 @@ export default async function logTaxDebugSubscriber(input: any) {
 
   try {
     // Retrieve cart with necessary relations for tax debugging
-    // We use 'retrieveCart' as it appears to be the runtime method in this environment (likely legacy or custom adapter)
+    // We use 'retrieveCart' as it appears to be the runtime method in this environment
     // We cast to any to bypass strict checks on the service interface.
     const cartRaw = await (cartService as any).retrieveCart(data.id, {
       relations: [
@@ -41,11 +41,20 @@ export default async function logTaxDebugSubscriber(input: any) {
     const address = cart.shipping_address
 
     // Fetch region separately if region_id exists
-    // We use standard 'retrieve' method for Region module, cast to any to avoid TS errors
+    // Switching to listRegions because retrieve() was reported missing at runtime
     let region: any = null
+    let taxRatesCount = 0
     if (cart.region_id) {
         try {
-            region = await (regionService as any).retrieve(cart.region_id)
+            // @ts-ignore
+            const regions = await regionService.listRegions(
+                { id: [cart.region_id] },
+                { relations: ["tax_rates"] }
+            )
+            region = regions[0]
+            if (region && region.tax_rates) {
+                taxRatesCount = region.tax_rates.length
+            }
         } catch (e) {
             logger.warn(`[TaxDebug] Could not retrieve region ${cart.region_id}: ${e.message}`)
         }
@@ -54,7 +63,9 @@ export default async function logTaxDebugSubscriber(input: any) {
     logger.info(`
 [TaxDebug] ---------------------------------------------------
 [TaxDebug] Event: ${eventName} | Cart: ${cart.id}
-[TaxDebug] Region: ${region?.name || cart.region_id} (Tax Provider: ${region?.automatic_taxes ? 'Automatic' : 'Manual'})
+[TaxDebug] Region: ${region?.name || cart.region_id}
+[TaxDebug] Tax Settings: Automatic=${region?.automatic_taxes}, GiftCardsTaxable=${region?.gift_cards_taxable}
+[TaxDebug] Region Tax Rates Found: ${taxRatesCount}
 [TaxDebug] Shipping Address:
   City: ${address?.city || 'N/A'}
   Province/State: ${address?.province || 'N/A'}
