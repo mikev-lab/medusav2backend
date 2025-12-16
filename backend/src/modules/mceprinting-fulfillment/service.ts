@@ -51,8 +51,8 @@ export default class McePrintingFulfillmentService extends AbstractFulfillmentPr
       console.log("  - data keys:", Object.keys(data || {}))
       // Reuse logic
       const result = await this.calculateFulfillmentOptionPrice(optionData, data, context)
-      console.log("[McePrintingFulfillment] calculatePrice returning:", result)
-      return result
+      console.log("[McePrintingFulfillment] calculatePrice returning number:", result.price)
+      return result.price
   }
 
   async calculateFulfillmentOptionPrice(
