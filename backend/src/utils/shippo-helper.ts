@@ -37,12 +37,21 @@ export async function fetchShippoRates(items: any[], shippingAddress: any, boxSi
         }
     })
 
+    // --- FIX FOR SHIPPO STATE CODE ---
+    // Medusa uses 'us-wa', but Shippo expects 'WA'.
+    // If country is US and province starts with 'us-', strip it.
+    let shippoState = shippingAddress?.province || "";
+    if (shippingAddress?.country_code === 'us' && shippoState.toLowerCase().startsWith('us-')) {
+        shippoState = shippoState.substring(3).toUpperCase(); // Remove 'us-' and uppercase
+    }
+    // ---------------------------------
+
     const toAddress = {
       name: (shippingAddress?.first_name || "") + " " + (shippingAddress?.last_name || ""),
       street1: shippingAddress?.address_1,
       street2: shippingAddress?.address_2,
       city: shippingAddress?.city,
-      state: shippingAddress?.province,
+      state: shippoState, // Use normalized state code
       zip: shippingAddress?.postal_code,
       country: shippingAddress?.country_code,
       validate: true
